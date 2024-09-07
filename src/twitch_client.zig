@@ -1,6 +1,7 @@
 const std = @import("std");
 const tls = @import("tls");
 const irc = @import("irc.zig");
+const ma = @import("miniaudio.zig");
 
 pub const TwitchClientConfig = struct {
     nick: []const u8 = "olab0t",
@@ -8,6 +9,7 @@ pub const TwitchClientConfig = struct {
     caps: []const u8 = "twitch.tv/membership twitch.tv/tags twitch.tv/commands",
     host: []const u8 = "irc.chat.twitch.tv",
     port: u16 = 6697,
+    play_msg_sound: bool = true,
 };
 
 pub fn TwitchClient(config: TwitchClientConfig) type {
@@ -18,6 +20,7 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         host: []const u8 = config.host,
         port: u16 = config.port,
         conn: ?tls.Connection(std.net.Stream) = null,
+        play_msg_sound: bool = config.play_msg_sound,
 
         const Self = @This();
 
@@ -160,11 +163,23 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         //    }
         //}
 
-        pub fn sendPONG(self: *Self) !void {
+        pub fn handleMessage(self: *Self, msg: irc.Msg, engine: anytype) !void {
+            switch (msg) {
+                .ping => try self.sendPONG(),
+                .other => return,
+                .privmsg => {
+                    std.debug.print("==PRIVMSG==\nchannel:{s}\nuser:{s}\nmsg:{s}\ncolor:NOTYET\n===========\n", .{ msg.privmsg.channel, msg.privmsg.user, msg.privmsg.msg });
+                    if (self.play_msg_sound) try engine.playNewMsgSound();
+                },
+            }
+        }
+
+        fn sendPONG(self: *Self) !void {
             const pong_msg = "PONG :tmi.twitch.tv\n";
 
             if (self.conn) |*conn| {
                 try conn.writeAll(pong_msg);
+                std.debug.print("SENT PONG\n", .{});
             }
         }
     };
