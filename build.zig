@@ -45,6 +45,15 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe_unit_tests.root_module.addImport("tls", tls.module("tls"));
+    exe_unit_tests.root_module.addCSourceFile(.{
+        .file = b.path("./src/csrc/miniaudio_impl.c"),
+        //.flags = &.{ "-O2", "-DMA_NO_FLAC", "-DMA_NO_WEBAUDIO", "-DMA_NO_ENCODING", "-DMA_NO_NULL", "-DMA_NO_RUNTIME_LINKING" },
+        .flags = &.{ "-fno-sanitize=undefined", "-O2" },
+    });
+    exe_unit_tests.root_module.addIncludePath(b.path("./src/csrc"));
+    exe_unit_tests.linkLibC();
+
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
     const test_step = b.step("test", "Run unit tests");

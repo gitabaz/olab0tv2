@@ -13,8 +13,6 @@ const EngineConfig = struct {
     new_msg_sound_path: []const u8,
 };
 
-pub const MAEngine = *c.ma_engine;
-
 pub fn Engine(config: EngineConfig) type {
     return struct {
         engine: *c.ma_engine = undefined,

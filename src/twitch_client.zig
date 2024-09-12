@@ -48,7 +48,7 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
 
         pub fn requestCaps(self: *Self, allocator: std.mem.Allocator) !void {
             if (self.conn) |*conn| {
-                const cap_msg = try std.fmt.allocPrint(allocator, "CAP REQ :{s}\n", .{self.caps});
+                const cap_msg = try std.fmt.allocPrint(allocator, "CAP REQ :{s}\r\n", .{self.caps});
                 defer allocator.free(cap_msg);
 
                 try conn.writeAll(cap_msg);
@@ -71,10 +71,10 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
 
         pub fn authenticate(self: *Self, allocator: std.mem.Allocator) !void {
             if (self.user_access_token) |uat| {
-                const oauth_msg = try std.fmt.allocPrint(allocator, "PASS oauth:{s}\n", .{uat});
+                const oauth_msg = try std.fmt.allocPrint(allocator, "PASS oauth:{s}\r\n", .{uat});
                 defer allocator.free(oauth_msg);
 
-                const nick_msg = try std.fmt.allocPrint(allocator, "NICK {s}\n", .{self.nick});
+                const nick_msg = try std.fmt.allocPrint(allocator, "NICK {s}\r\n", .{self.nick});
                 defer allocator.free(nick_msg);
 
                 if (self.conn) |*conn| {
@@ -139,7 +139,7 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         }
 
         pub fn joinChannel(self: *Self, allocator: std.mem.Allocator, channel_list: []const u8) !void {
-            const join_channel_msg = try std.fmt.allocPrint(allocator, "JOIN #{s}\n", .{channel_list});
+            const join_channel_msg = try std.fmt.allocPrint(allocator, "JOIN #{s}\r\n", .{channel_list});
             defer allocator.free(join_channel_msg);
 
             if (self.conn) |*conn| {
@@ -166,16 +166,20 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         pub fn handleMessage(self: *Self, msg: irc.Msg, engine: anytype) !void {
             switch (msg) {
                 .ping => try self.sendPONG(),
-                .other => return,
                 .privmsg => {
-                    std.debug.print("==PRIVMSG==\nchannel:{s}\nuser:{s}\nmsg:{s}\ncolor:NOTYET\n===========\n", .{ msg.privmsg.channel, msg.privmsg.user, msg.privmsg.msg });
+                    std.debug.print(
+                        "==PRIVMSG==\nchannel:{s}\nuser:{s}\nmsg:{s}\ncolor:{s}\n===========\n",
+                        .{ msg.privmsg.channel, msg.privmsg.user, msg.privmsg.msg, msg.privmsg.color },
+                    );
                     if (self.play_msg_sound) try engine.playNewMsgSound();
                 },
+                .user_state => return,
+                .other => return,
             }
         }
 
         fn sendPONG(self: *Self) !void {
-            const pong_msg = "PONG :tmi.twitch.tv\n";
+            const pong_msg = "PONG :tmi.twitch.tv\r\n";
 
             if (self.conn) |*conn| {
                 try conn.writeAll(pong_msg);
