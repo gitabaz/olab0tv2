@@ -357,15 +357,15 @@ const RoomState = struct {
     }
 };
 
-test "parseMessage SOURCE" {
+test "grabMsgParts SOURCE" {
     const allocator = std.testing.allocator;
 
     var src_msg: []const u8 = undefined;
-    var res: MsgParts = undefined;
+    var res: MsgParts = .{};
 
     {
         src_msg = ":tmi.twitch.tv CAP * ACK :twitch.tv/membership twitch.tv/tags twitch.tv/commands";
-        res = try parseMessage(allocator, src_msg);
+        try res.grabMsgParts(allocator, src_msg);
         defer res.deinit(allocator);
 
         try std.testing.expect(null == res.tags);
@@ -376,7 +376,7 @@ test "parseMessage SOURCE" {
 
     {
         src_msg = ":tmi.twitch.tv 001 olab0t :Welcome, GLHF!";
-        res = try parseMessage(allocator, src_msg);
+        try res.grabMsgParts(allocator, src_msg);
         defer res.deinit(allocator);
 
         try std.testing.expect(null == res.tags);
@@ -386,11 +386,12 @@ test "parseMessage SOURCE" {
     }
 }
 
-test "parseMessage PING" {
+test "grabMsgParts PING" {
     const ping_msg = "PING :tmi.twitch.tv";
     const allocator = std.testing.allocator;
 
-    const res = try parseMessage(allocator, ping_msg);
+    var res: MsgParts = .{};
+    try res.grabMsgParts(allocator, ping_msg);
     defer res.deinit(allocator);
 
     try std.testing.expect(null == res.tags);
@@ -399,7 +400,7 @@ test "parseMessage PING" {
     try std.testing.expectEqualSlices(u8, "tmi.twitch.tv", res.parameters);
 }
 
-test "parseMessage PRIVMSG" {
+test "grabMsgParts PRIVMSG" {
     const priv_msg = "@badge-info=;badges=broadcaster/1;client-nonce=5686cc9a3bd17e62bc4e9de8d90dcc26;color=#FF4500;" ++
         "display-name=olabaz;emotes=1:9-10;first-msg=0;flags=;id=78f87122-c59e-4322-bc59-08c77c5afd61;mod=0;returning-chatter=0;" ++
         "room-id=23126828;subscriber=0;tmi-sent-ts=1726069317334;turbo=0;user-id=23126828;user-type= " ++
@@ -414,7 +415,8 @@ test "parseMessage PRIVMSG" {
 
     const allocator = std.testing.allocator;
 
-    const res = try parseMessage(allocator, priv_msg);
+    var res: MsgParts = .{};
+    try res.grabMsgParts(allocator, priv_msg);
     defer res.deinit(allocator);
 
     try std.testing.expectEqualSlices(u8, tags, res.tags.?);
@@ -423,7 +425,7 @@ test "parseMessage PRIVMSG" {
     try std.testing.expectEqualSlices(u8, parameters, res.parameters);
 }
 
-test "parseMessage GLOBALUSERSTATE" {
+test "grabMsgParts GLOBALUSERSTATE" {
     const gus_msg = "@badge-info=;badges=;color=;display-name=olab0t;emote-sets=0,300374282;user-id=559947421;user-type= " ++
         ":tmi.twitch.tv GLOBALUSERSTATE";
 
@@ -433,7 +435,8 @@ test "parseMessage GLOBALUSERSTATE" {
 
     const allocator = std.testing.allocator;
 
-    const res = try parseMessage(allocator, gus_msg);
+    var res: MsgParts = .{};
+    try res.grabMsgParts(allocator, gus_msg);
     defer res.deinit(allocator);
 
     try std.testing.expectEqualSlices(u8, tags, res.tags.?);
