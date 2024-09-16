@@ -5,17 +5,6 @@ pub const Msg = union(MsgType) {
     privmsg: PrivMsg,
     user_state: UserStateMsg,
     other: bool,
-
-    const Self = @This();
-
-    pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
-        switch (self.*) {
-            .ping => self.ping.deinit(allocator),
-            .privmsg => {},
-            .user_state => {},
-            .other => {},
-        }
-    }
 };
 
 pub const MsgType = enum {
@@ -29,10 +18,6 @@ pub const PingMsg = struct {
     token: []const u8,
 
     const Self = @This();
-
-    pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
-        allocator.free(self.token);
-    }
 };
 
 pub fn msgFromMsgParts(msg_parts: MsgParts) Msg {
@@ -64,13 +49,13 @@ pub const MsgParts = struct {
 
     const Self = @This();
 
-    pub fn grabMsgParts(self: *Self, allocator: std.mem.Allocator, msg: []const u8) !void {
+    pub fn grabMsgParts(self: *Self, msg: []const u8) !void {
         var cur_msg: []const u8 = msg;
 
         if (cur_msg[0] == '@') {
             // Message has tags so we should pull them out
             var tag_it = std.mem.splitAny(u8, msg[1..], " ");
-            try self.grabTags(allocator, tag_it.first());
+            try self.grabTags(tag_it.first());
 
             // Set cur_msg to everything after the tags so it is ready for the
             // next check
@@ -79,60 +64,40 @@ pub const MsgParts = struct {
         if (cur_msg[0] == ':') {
             // Message has a source so we should pull it out
             var source_it = std.mem.splitAny(u8, cur_msg[1..], " ");
-            try self.grabSource(allocator, source_it.first());
+            try self.grabSource(source_it.first());
 
             // Set cur_msg to everything after the source so it is ready for
             // the next check
             cur_msg = source_it.rest();
         }
 
-        try self.grabCommand(allocator, cur_msg);
+        try self.grabCommand(cur_msg);
     }
 
-    pub fn grabTags(self: *Self, allocator: std.mem.Allocator, msg: []const u8) !void {
-        self.tags = try std.fmt.allocPrint(allocator, "{s}", .{msg});
+    pub fn grabTags(self: *Self, msg: []const u8) !void {
+        self.tags = msg;
     }
 
-    pub fn grabSource(self: *Self, allocator: std.mem.Allocator, msg: []const u8) !void {
+    pub fn grabSource(self: *Self, msg: []const u8) !void {
         // std.debug.print("PARSING SOURCE:\n{s}|\n", .{msg});
         // std.debug.print("source: {s}|\n", .{msg});
-        self.source = try std.fmt.allocPrint(allocator, "{s}", .{msg});
+        self.source = msg;
     }
 
-    pub fn grabCommand(self: *Self, allocator: std.mem.Allocator, msg: []const u8) !void {
+    pub fn grabCommand(self: *Self, msg: []const u8) !void {
         var it = std.mem.splitAny(u8, msg, ":");
 
         // std.debug.print("Parsing COMMANDS:\n{s}|\n", .{msg});
 
         const command = std.mem.trim(u8, it.first(), " ");
-        self.command = try std.fmt.allocPrint(allocator, "{s}", .{command});
+        self.command = command;
         // std.debug.print("command: {s}|\n", .{command});
 
         const params = it.rest();
-        self.parameters = try std.fmt.allocPrint(allocator, "{s}", .{params});
+        self.parameters = params;
         // std.debug.print("params: {s}|\n", .{params});
     }
-
-    pub fn deinit(self: *const Self, allocator: std.mem.Allocator) void {
-        if (self.tags) |tags| {
-            allocator.free(tags);
-        }
-        if (self.source) |source| {
-            allocator.free(source);
-        }
-        allocator.free(self.command);
-        allocator.free(self.parameters);
-    }
 };
-
-pub fn isPing(tags: []const u8) bool {
-    if (std.mem.eql(u8, tags, "PING ")) {
-        // std.debug.print("GOT A PINGGGG\n", .{});
-        return true;
-    }
-
-    return false;
-}
 
 const Command = enum {
     CLEARCHAT,
@@ -149,11 +114,18 @@ const Command = enum {
     OTHER,
 };
 
+const Color = packed struct {
+    // Fields remain in the order declared, least to most significant.
+    b: u8,
+    g: u8,
+    r: u8,
+};
+
 const PrivMsg = struct {
     channel: []const u8 = undefined,
     user: []const u8 = undefined,
     msg: []const u8 = undefined,
-    color: []const u8 = undefined,
+    color: Color = .{ .r = 0, .g = 0xFF, .b = 0 },
 
     const Self = @This();
 
@@ -185,7 +157,15 @@ const PrivMsg = struct {
             if (std.mem.eql(u8, tag_name, "display-name")) {
                 self.user = tag_value;
             } else if (std.mem.eql(u8, tag_name, "color")) {
-                self.color = tag_value;
+                if (tag_value.len > 1) {
+                    if (std.fmt.parseInt(u24, tag_value[1..], 16)) |color| {
+                        self.color = @bitCast(color);
+                    } else |err| { // TODO: Handle this in a nicer way.
+                        switch (err) {
+                            else => {},
+                        }
+                    }
+                }
             }
             //std.debug.print("tag-name: {s}|\ntag-value: {s}|\n", .{ tag_name, tag_value });
         }
@@ -254,9 +234,9 @@ pub fn parsePrivMsg(allocator: std.mem.Allocator, msg: []const u8) !*PrivMsg {
 
     var priv_msg = try allocator.create(PrivMsg);
 
-    priv_msg.channel = try std.fmt.allocPrint(allocator, "{s}", .{channel});
-    priv_msg.user = try std.fmt.allocPrint(allocator, "{s}", .{user});
-    priv_msg.msg = try std.fmt.allocPrint(allocator, "{s}", .{user_msg});
+    priv_msg.channel = channel;
+    priv_msg.user = user;
+    priv_msg.msg = user_msg;
 
     return priv_msg;
 }
@@ -282,13 +262,13 @@ pub fn parseSource(allocator: std.mem.Allocator, msg: []const u8) []const u8 {
     return msg;
 }
 
-pub fn parseMessage(allocator: std.mem.Allocator, msg: []const u8) !Msg {
+pub fn parseMessage(msg: []const u8) !Msg {
     // Parse messages of the form:
     // message ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
 
     //std.debug.print("\n==MESSAGE==\n{s}|\n========\n", .{msg});
     var msg_parts: MsgParts = .{};
-    try msg_parts.grabMsgParts(allocator, msg);
+    try msg_parts.grabMsgParts(msg);
 
     const parsed_message: Msg = msgFromMsgParts(msg_parts);
 
@@ -358,15 +338,12 @@ const RoomState = struct {
 };
 
 test "grabMsgParts SOURCE" {
-    const allocator = std.testing.allocator;
-
     var src_msg: []const u8 = undefined;
     var res: MsgParts = .{};
 
     {
         src_msg = ":tmi.twitch.tv CAP * ACK :twitch.tv/membership twitch.tv/tags twitch.tv/commands";
-        try res.grabMsgParts(allocator, src_msg);
-        defer res.deinit(allocator);
+        try res.grabMsgParts(src_msg);
 
         try std.testing.expect(null == res.tags);
         try std.testing.expectEqualSlices(u8, "tmi.twitch.tv", res.source.?);
@@ -376,8 +353,7 @@ test "grabMsgParts SOURCE" {
 
     {
         src_msg = ":tmi.twitch.tv 001 olab0t :Welcome, GLHF!";
-        try res.grabMsgParts(allocator, src_msg);
-        defer res.deinit(allocator);
+        try res.grabMsgParts(src_msg);
 
         try std.testing.expect(null == res.tags);
         try std.testing.expectEqualSlices(u8, "tmi.twitch.tv", res.source.?);
@@ -388,11 +364,9 @@ test "grabMsgParts SOURCE" {
 
 test "grabMsgParts PING" {
     const ping_msg = "PING :tmi.twitch.tv";
-    const allocator = std.testing.allocator;
 
     var res: MsgParts = .{};
-    try res.grabMsgParts(allocator, ping_msg);
-    defer res.deinit(allocator);
+    try res.grabMsgParts(ping_msg);
 
     try std.testing.expect(null == res.tags);
     try std.testing.expect(null == res.source);
@@ -413,11 +387,8 @@ test "grabMsgParts PRIVMSG" {
     const command = "PRIVMSG #olabaz";
     const parameters = "hi there :)";
 
-    const allocator = std.testing.allocator;
-
     var res: MsgParts = .{};
-    try res.grabMsgParts(allocator, priv_msg);
-    defer res.deinit(allocator);
+    try res.grabMsgParts(priv_msg);
 
     try std.testing.expectEqualSlices(u8, tags, res.tags.?);
     try std.testing.expectEqualSlices(u8, source, res.source.?);
@@ -433,11 +404,8 @@ test "grabMsgParts GLOBALUSERSTATE" {
     const source = "tmi.twitch.tv";
     const command = "GLOBALUSERSTATE";
 
-    const allocator = std.testing.allocator;
-
     var res: MsgParts = .{};
-    try res.grabMsgParts(allocator, gus_msg);
-    defer res.deinit(allocator);
+    try res.grabMsgParts(gus_msg);
 
     try std.testing.expectEqualSlices(u8, tags, res.tags.?);
     try std.testing.expectEqualSlices(u8, source, res.source.?);

@@ -167,9 +167,13 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
             switch (msg) {
                 .ping => try self.sendPONG(),
                 .privmsg => {
+                    // std.debug.print(
+                    //     "==PRIVMSG==\nchannel:{s}\nuser:{s}\nmsg:{s}\ncolor:{}\n===========\n",
+                    //     .{ msg.privmsg.channel, msg.privmsg.user, msg.privmsg.msg, msg.privmsg.color },
+                    // );
                     std.debug.print(
-                        "==PRIVMSG==\nchannel:{s}\nuser:{s}\nmsg:{s}\ncolor:{s}\n===========\n",
-                        .{ msg.privmsg.channel, msg.privmsg.user, msg.privmsg.msg, msg.privmsg.color },
+                        "\x1b[38;2;{d};{d};{d}m{s}\x1b[0m: {s}\n",
+                        .{ msg.privmsg.color.r, msg.privmsg.color.g, msg.privmsg.color.b, msg.privmsg.user, msg.privmsg.msg },
                     );
                     if (self.play_msg_sound) try engine.playNewMsgSound();
                 },

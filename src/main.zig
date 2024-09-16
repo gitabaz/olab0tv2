@@ -50,9 +50,8 @@ pub fn main() !void {
             res = try conn.reader().readUntilDelimiterAlloc(allocator, '\n', 4096);
             defer allocator.free(res);
 
-            var msg = try irc.parseMessage(allocator, res);
+            const msg = try irc.parseMessage(res);
             try tc.handleMessage(msg, &engine);
-            defer msg.deinit(allocator);
             // try std.io.getStdOut().writer().print("{s}\n", .{res});
         }
     }
