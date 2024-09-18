@@ -126,6 +126,7 @@ const PrivMsg = struct {
     user: []const u8 = undefined,
     msg: []const u8 = undefined,
     color: Color = .{ .r = 0, .g = 0xFF, .b = 0 },
+    timestamp: usize = undefined,
 
     const Self = @This();
 
@@ -166,6 +167,10 @@ const PrivMsg = struct {
                         }
                     }
                 }
+            } else if (std.mem.eql(u8, tag_name, "tmi-sent-ts")) {
+                // Twitch gives time in ms
+                const timestamp_ms = std.fmt.parseInt(usize, tag_value, 10) catch 0;
+                self.timestamp = timestamp_ms / 1000;
             }
             //std.debug.print("tag-name: {s}|\ntag-value: {s}|\n", .{ tag_name, tag_value });
         }
@@ -217,51 +222,6 @@ const UserStateMsg = struct {
     }
 };
 
-pub fn parsePrivMsg(allocator: std.mem.Allocator, msg: []const u8) !*PrivMsg {
-    //olabaz!olabaz@olabaz.tmi.twitch.tv PRIVMSG #olabaz :hi there
-    var it = std.mem.splitAny(u8, msg, "!");
-    const user = it.first();
-
-    var rest = it.rest();
-    it = std.mem.splitAny(u8, rest, "#");
-    _ = it.first();
-    rest = it.rest();
-
-    it = std.mem.splitAny(u8, rest, ":");
-
-    const channel = std.mem.trim(u8, it.first(), " ");
-    const user_msg = it.rest();
-
-    var priv_msg = try allocator.create(PrivMsg);
-
-    priv_msg.channel = channel;
-    priv_msg.user = user;
-    priv_msg.msg = user_msg;
-
-    return priv_msg;
-}
-
-pub fn parseTags(allocator: std.mem.Allocator, msg: []const u8) void {
-    _ = allocator;
-    std.debug.print("PARSING TAGS:\n{s}|\n", .{msg});
-    var it = std.mem.splitAny(u8, msg, ";");
-
-    while (it.next()) |tag_pair| {
-        var pair_it = std.mem.splitAny(u8, tag_pair, "=");
-        const tag_name = pair_it.first();
-        const tag_value = pair_it.rest();
-        std.debug.print("tag-name: {s}|\ntag-value: {s}|\n", .{ tag_name, tag_value });
-    }
-}
-
-pub fn parseSource(allocator: std.mem.Allocator, msg: []const u8) []const u8 {
-    _ = allocator;
-    std.debug.print("PARSING SOURCE:\n{s}|\n", .{msg});
-    std.debug.print("source: {s}|\n", .{msg});
-
-    return msg;
-}
-
 pub fn parseMessage(msg: []const u8) !Msg {
     // Parse messages of the form:
     // message ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
@@ -273,24 +233,6 @@ pub fn parseMessage(msg: []const u8) !Msg {
     const parsed_message: Msg = msgFromMsgParts(msg_parts);
 
     return parsed_message;
-
-    // switch (parsed_message) {
-    //     .ping => {
-    //         std.debug.print("GOT PING\n", .{});
-    //         std.debug.print("{}\n", .{parsed_message.ping});
-    //     },
-    //     .privmsg => {
-    //         std.debug.print("\nGOT PRIVMSG\n", .{});
-    //         std.debug.print("{}\n", .{parsed_message.privmsg});
-    //     },
-    //     .user_state => {
-    //         std.debug.print("\nGOT USERSTATE\n", .{});
-    //         std.debug.print("{}\n", .{parsed_message.user_state});
-    //     },
-    //     .other => {
-    //         std.debug.print("\nGOT OTHER\n", .{});
-    //     },
-    // }
 }
 
 const RoomState = struct {

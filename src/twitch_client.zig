@@ -2,6 +2,7 @@ const std = @import("std");
 const tls = @import("tls");
 const irc = @import("irc.zig");
 const ma = @import("miniaudio.zig");
+const datetime = @import("datetime.zig");
 
 pub const TwitchClientConfig = struct {
     nick: []const u8 = "olab0t",
@@ -9,6 +10,7 @@ pub const TwitchClientConfig = struct {
     caps: []const u8 = "twitch.tv/membership twitch.tv/tags twitch.tv/commands",
     host: []const u8 = "irc.chat.twitch.tv",
     port: u16 = 6697,
+    utc: i8 = -5,
     play_msg_sound: bool = true,
 };
 
@@ -20,6 +22,7 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         host: []const u8 = config.host,
         port: u16 = config.port,
         conn: ?tls.Connection(std.net.Stream) = null,
+        utc: i8 = config.utc,
         play_msg_sound: bool = config.play_msg_sound,
 
         const Self = @This();
@@ -171,9 +174,20 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
                     //     "==PRIVMSG==\nchannel:{s}\nuser:{s}\nmsg:{s}\ncolor:{}\n===========\n",
                     //     .{ msg.privmsg.channel, msg.privmsg.user, msg.privmsg.msg, msg.privmsg.color },
                     // );
+
+                    const time = datetime.Clock.fromTimestamp(msg.privmsg.timestamp, self.utc);
                     std.debug.print(
-                        "\x1b[38;2;{d};{d};{d}m{s}\x1b[0m: {s}\n",
-                        .{ msg.privmsg.color.r, msg.privmsg.color.g, msg.privmsg.color.b, msg.privmsg.user, msg.privmsg.msg },
+                        "{d:0>2}:{d:0>2}:{d:0>2} \x1b[38;2;{d};{d};{d}m{s}\x1b[0m: {s}\n",
+                        .{
+                            time.hr,
+                            time.min,
+                            time.sec,
+                            msg.privmsg.color.r,
+                            msg.privmsg.color.g,
+                            msg.privmsg.color.b,
+                            msg.privmsg.user,
+                            msg.privmsg.msg,
+                        },
                     );
                     if (self.play_msg_sound) try engine.playNewMsgSound();
                 },
@@ -187,7 +201,6 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
 
             if (self.conn) |*conn| {
                 try conn.writeAll(pong_msg);
-                std.debug.print("SENT PONG\n", .{});
             }
         }
     };

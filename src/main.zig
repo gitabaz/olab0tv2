@@ -25,6 +25,7 @@ pub fn main() !void {
     var tc = twitch_client.TwitchClient(.{
         .nick = nick,
         .caps = caps,
+        .utc = -4,
         .play_msg_sound = true,
     }){};
 
