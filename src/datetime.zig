@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub const Clock = struct {
     hr: u8,
     min: u8,
@@ -13,7 +15,7 @@ pub const Clock = struct {
         if (hours_utc < 0) {
             hours_utc += 12;
         } else if (hours_utc > 24) {
-            hours_utc -= 12;
+            hours_utc -= 24;
         }
 
         return Clock{
@@ -23,3 +25,22 @@ pub const Clock = struct {
         };
     }
 };
+
+test "timestamp" {
+
+    const ts:usize = 1726862295;
+
+    var res = Clock.fromTimestamp(ts, 0);
+    try std.testing.expectEqual(19, res.hr);
+    try std.testing.expectEqual(58, res.min);
+    try std.testing.expectEqual(15, res.sec);
+
+    res = Clock.fromTimestamp(ts, -4);
+    try std.testing.expectEqual(15, res.hr);
+
+    res = Clock.fromTimestamp(ts, -11);
+    try std.testing.expectEqual(8, res.hr);
+
+    res = Clock.fromTimestamp(ts, 14);
+    try std.testing.expectEqual(9, res.hr);
+}
