@@ -3,6 +3,7 @@ const tls = @import("tls");
 const irc = @import("irc.zig");
 const ma = @import("miniaudio.zig");
 const datetime = @import("datetime.zig");
+const cmd = @import("commands.zig");
 
 pub const TwitchClientConfig = struct {
     nick: []const u8 = "olab0t",
@@ -166,7 +167,7 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         //    }
         //}
 
-        pub fn handleMessage(self: *Self, msg: irc.Msg, engine: anytype) !void {
+        pub fn handleMessage(self: *Self, allocator: std.mem.Allocator, msg: irc.Msg, engine: anytype) !void {
             switch (msg) {
                 .ping => try self.sendPONG(),
                 .privmsg => {
@@ -190,9 +191,22 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
                         },
                     );
                     if (self.play_msg_sound) try engine.playNewMsgSound();
+
+                    if (msg.privmsg.msg[0] == '!') {
+                        try cmd.handleCommand(allocator, self, msg.privmsg);
+                    }
                 },
                 .user_state => return,
                 .other => return,
+            }
+        }
+
+        pub fn sendPRIVMSG(self: *Self, allocator: std.mem.Allocator, channel: []const u8, msg: []const u8) !void {
+            const priv_msg = try std.fmt.allocPrint(allocator, "PRIVMSG #{s} :{s}\r\n", .{channel, msg});
+            defer allocator.free(priv_msg);
+
+            if (self.conn) |*conn| {
+                try conn.writeAll(priv_msg);
             }
         }
 

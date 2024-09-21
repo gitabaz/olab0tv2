@@ -121,7 +121,7 @@ const Color = packed struct {
     r: u8,
 };
 
-const PrivMsg = struct {
+pub const PrivMsg = struct {
     channel: []const u8 = undefined,
     user: []const u8 = undefined,
     msg: []const u8 = undefined,

@@ -52,7 +52,7 @@ pub fn main() !void {
             defer allocator.free(res);
 
             const msg = try irc.parseMessage(res);
-            try tc.handleMessage(msg, &engine);
+            try tc.handleMessage(allocator, msg, &engine);
             // try std.io.getStdOut().writer().print("{s}\n", .{res});
         }
     }
