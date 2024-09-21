@@ -127,6 +127,7 @@ pub const PrivMsg = struct {
     msg: []const u8 = undefined,
     color: Color = .{ .r = 0, .g = 0xFF, .b = 0 },
     timestamp: usize = undefined,
+    mod: bool = false,
 
     const Self = @This();
 
@@ -171,6 +172,9 @@ pub const PrivMsg = struct {
                 // Twitch gives time in ms
                 const timestamp_ms = std.fmt.parseInt(usize, tag_value, 10) catch 0;
                 self.timestamp = timestamp_ms / 1000;
+            } else if (std.mem.eql(u8, tag_name, "mod")) {
+                const mod_int = std.fmt.parseInt(u1, tag_value, 10) catch 0;
+                self.mod = mod_int == 1;
             }
             //std.debug.print("tag-name: {s}|\ntag-value: {s}|\n", .{ tag_name, tag_value });
         }

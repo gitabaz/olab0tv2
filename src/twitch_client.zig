@@ -15,6 +15,11 @@ pub const TwitchClientConfig = struct {
     play_msg_sound: bool = true,
 };
 
+pub const TwitchState = struct {
+    playlist: ?[]const u8 = null,
+    motd: ?[]const u8 = null,
+};
+
 pub fn TwitchClient(config: TwitchClientConfig) type {
     return struct {
         nick: []const u8 = config.nick,
@@ -25,6 +30,7 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         conn: ?tls.Connection(std.net.Stream) = null,
         utc: i8 = config.utc,
         play_msg_sound: bool = config.play_msg_sound,
+        state: TwitchState = .{ .playlist = null },
 
         const Self = @This();
 
@@ -202,7 +208,7 @@ pub fn TwitchClient(config: TwitchClientConfig) type {
         }
 
         pub fn sendPRIVMSG(self: *Self, allocator: std.mem.Allocator, channel: []const u8, msg: []const u8) !void {
-            const priv_msg = try std.fmt.allocPrint(allocator, "PRIVMSG #{s} :{s}\r\n", .{channel, msg});
+            const priv_msg = try std.fmt.allocPrint(allocator, "PRIVMSG #{s} :{s}\r\n", .{ channel, msg });
             defer allocator.free(priv_msg);
 
             if (self.conn) |*conn| {
