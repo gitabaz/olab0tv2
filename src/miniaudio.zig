@@ -15,7 +15,7 @@ const EngineConfig = struct {
 
 pub fn Engine(config: EngineConfig) type {
     return struct {
-        engine: *c.ma_engine = undefined,
+        engine: ?*c.ma_engine = null,
         new_msg_sound_path: []const u8 = config.new_msg_sound_path,
         const Self = @This();
 
@@ -30,15 +30,19 @@ pub fn Engine(config: EngineConfig) type {
         }
 
         pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
-            c.ma_engine_uninit(self.engine);
-            allocator.destroy(self.engine);
+            if (self.engine) |engine| {
+                c.ma_engine_uninit(engine);
+                allocator.destroy(engine);
+            }
         }
 
         fn playSound(self: *Self, file_path: []const u8) !void {
-            const result = c.ma_engine_play_sound(self.engine, file_path.ptr, null);
+            if (self.engine) |engine| {
+                const result = c.ma_engine_play_sound(engine, file_path.ptr, null);
 
-            if (result != c.MA_SUCCESS) {
-                return MiniAudioError.PlaySoundFail;
+                if (result != c.MA_SUCCESS) {
+                    return MiniAudioError.PlaySoundFail;
+                }
             }
         }
 
