@@ -1,6 +1,8 @@
 import sys
 import os
 
+import cmd_weather
+
 def usage():
     print("Usage: !<cmd> [params]")
 
@@ -19,18 +21,30 @@ def set(user, cmd, params):
         key = param_list[0]
         value = " ".join(param_list[1:])
         fn = str("./commands/artifacts/%s" % key)
-        with open(fn, "w") as f:
-            f.write(value)
+        with open(fn, "a") as f:
+            f.write(value + "\n")
             print(key, "set to:", value, "SeemsGood")
 
 def motd(user, cmd, params):
     fn = "./commands/artifacts/motd"
     if os.path.exists(fn):
         with open(fn, "r") as f:
-            contents = f.read()
-            print(str("@%s: %s" % (user, contents)))
+            contents = f.readlines()
+            print(str("@%s: %s" % (user, contents[-1].strip())))
     else:
         print(cmd, "not set")
+
+def playlist(user, cmd, params):
+    fn = "./commands/artifacts/playlist"
+    if os.path.exists(fn):
+        with open(fn, "r") as f:
+            contents = f.readlines()
+            print(str("@%s: %s" % (user, contents[-1].strip())))
+    else:
+        print(cmd, "not set")
+
+def weather(user, cmd, params):
+    print(str("@%s: %s" % (user, cmd_weather.get_weather(params))))
 
 
 cmd_list = {
@@ -39,6 +53,8 @@ cmd_list = {
     "olab0t": olab0t,
     "set": set,
     "motd": motd,
+    "playlist": playlist,
+    "weather": weather,
 }
 
 def handle_command(user, cmd, params):
